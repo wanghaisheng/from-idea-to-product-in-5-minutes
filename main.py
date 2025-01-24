@@ -4,10 +4,17 @@ import openai
 from dotenv import load_dotenv
 import requests
 import base64
+import httpx
 from google.generativeai import GenerativeModel
 from deepseek_ai import DeepSeekClient
 from midjourney import Midjourney
 import ideogram
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import WebDriverException
+from webdriver_manager.chrome import ChromeDriverManager
 
 load_dotenv()  # 加载 .env 文件
 
@@ -16,6 +23,8 @@ gemini_api_key = os.getenv("GEMINI_API_KEY")  # 设置 Gemini API Key
 deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")  # 设置 DeepSeek API Key
 midjourney_api_key = os.getenv("MIDJOURNEY_API_KEY") # 设置 Midjourney API Key
 ideogram_api_key = os.getenv("IDEOGRAM_API_KEY") # 设置 Ideogram API Key
+
+initial_keyword = "emoji generator without mouth" # 初始关键词
 
 # 1. 数据读取
 def read_data(file_path):
@@ -252,7 +261,57 @@ ai_dev_guidelines = """
 *   This approach enables developers to work efficiently while maintaining design fidelity by managing visual components and layout requirements, *emphasizing the importance of pixel-perfect implementation through accurate position and dimension handling*, while ensuring consistency.
 """
 
-# 15. 执行 Google Design Sprint 的各个阶段
+# 15. 应用商店数据获取方法
+def app_store_fallback():
+    print("应用商店数据为空，正在使用初始关键字获取数据...")
+    # 这里使用初始关键字和API或者爬虫来获取应用商店的数据， 具体实现取决于使用哪个API或者爬虫
+    app_descriptions =  [f"This is a placeholder app description for {initial_keyword}"]
+    user_reviews =  [f"This is a placeholder user review for {initial_keyword}"]
+    return app_descriptions, user_reviews
+
+
+#16. 竞品数据获取方法
+def get_competitor_content(urls):
+    print("竞品网站数据为空，正在使用httpx获取数据...")
+    competitor_content = []
+    for url in urls:
+        try:
+            response = httpx.get(url, follow_redirects=True)
+            response.raise_for_status() # 检查响应状态
+            competitor_content.append(response.text)
+        except httpx.RequestError as e:
+            print(f"Error fetching URL {url}: {e}")
+    return competitor_content
+
+
+def capture_screenshot(url, output_path):
+    print(f"正在截取 {url} 的屏幕截图...")
+
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920,1080")
+
+    try:
+          driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+          driver.get(url)
+          driver.save_screenshot(output_path)
+          driver.quit()
+          print(f"屏幕截图保存到: {output_path}")
+          return output_path
+    except WebDriverException as e:
+         print(f"屏幕截图失败: {e}")
+         return None
+
+# 17. Subreddit 数据获取方法
+def subreddit_fallback():
+    print("Subreddit 数据为空，正在使用初始关键字获取数据...")
+     #这里使用初始关键词和API或者爬虫来获取subreddit的数据， 具体实现取决于使用哪个API或者爬虫
+    subreddit_posts = [f"This is a placeholder subreddit post for {initial_keyword}"]
+    return subreddit_posts
+
+
+# 18. 执行 Google Design Sprint 的各个阶段
 def run_design_sprint():
     print("----- Google Design Sprint 开始 -----")
     # --- Day 1: Map ---
@@ -260,6 +319,9 @@ def run_design_sprint():
     # (1) 从应用商店收集信息
     app_descriptions = read_data("data/app_store/app_descriptions.txt")
     user_reviews = read_data("data/app_store/user_reviews.txt")
+
+    if not app_descriptions or not user_reviews:
+         app_descriptions, user_reviews = app_store_fallback()
 
     # Prompt for Application Description Analysis
     app_desc_prompt = f"""你是一个专业的应用分析师。请分析以下应用描述，提取出应用的核心功能、主要特点和目标用户群体。
@@ -290,8 +352,31 @@ def run_design_sprint():
 
     # (2) 从竞品网站收集信息
     competitor_files = [f for f in os.listdir("data/competitors/") if f.endswith((".html", ".md"))]
+
+    if not competitor_files:
+         competitor_urls = [
+              "https://www.example1.com",
+              "https://www.example2.com",
+              "https://www.example3.com"
+             ] # 根据你的需求设置竞争对手的url列表
+         competitor_contents = get_competitor_content(competitor_urls)
+         if competitor_contents:
+            for i, html_content in enumerate(competitor_contents):
+               file_path = f"output/day1/competitor_analysis_fallback_{i}.html"
+               save_output(html_content, file_path)
+               competitor_files.append(file_path)
+               capture_screenshot(competitor_urls[i], f"output/day1/competitor_screenshot_{i}.png")
+
+
+
     for file in competitor_files:
-        html_content = read_data(os.path.join("data/competitors/", file))
+        if isinstance(file, str):
+           if os.path.isfile(file):
+              html_content = read_data(file)
+           else:
+               html_content = read_data(f"data/competitors/{file}")
+        else:
+              continue #  如果是 fallback 的数据，直接跳过
 
         # Prompt for HTML Analysis
         comp_prompt = f"""你是一个网页分析师。请分析以下 HTML 代码（或 Markdown 内容），提取出页面的主要结构和重要元素，例如导航栏、搜索框、主要内容区域、按钮、链接等。
@@ -304,7 +389,7 @@ def run_design_sprint():
             - 主要元素：... (例如，导航栏链接、搜索框、按钮文本、图片描述等)
             """
         comp_output = call_llm(comp_prompt)
-        save_output(comp_output, f"output/day1/competitor_analysis_{os.path.splitext(file)[0]}.md")
+        save_output(comp_output, f"output/day1/competitor_analysis_{os.path.splitext(os.path.basename(file))[0]}.md")
 
         # Prompt for Functional Analysis
         comp_func_prompt = f"""你是一个功能分析师。请分析以下 HTML 代码（或 Markdown 内容），识别页面上的主要功能模块，例如表情符号搜索模块、表情符号编辑模块、表情符号组合模块等。
@@ -316,7 +401,7 @@ def run_design_sprint():
             - 功能模块：... (列出每个模块，并简要描述其功能)
             """
         comp_func_output = call_llm(comp_func_prompt)
-        save_output(comp_func_output, f"output/day1/competitor_function_{os.path.splitext(file)[0]}.md")
+        save_output(comp_func_output, f"output/day1/competitor_function_{os.path.splitext(os.path.basename(file))[0]}.md")
 
          # Prompt for Content Analysis
         comp_content_prompt = f"""你是一个网页内容分析师。请分析以下 HTML 代码（或 Markdown 内容），提取页面上的关键文本内容（例如按钮标签、说明文本等）和交互元素（例如输入框、按钮、下拉列表等）。
@@ -329,11 +414,13 @@ def run_design_sprint():
             - 交互元素：... (列出主要的交互元素及其类型)
             """
         comp_content_output = call_llm(comp_content_prompt)
-        save_output(comp_content_output, f"output/day1/competitor_content_{os.path.splitext(file)[0]}.md")
+        save_output(comp_content_output, f"output/day1/competitor_content_{os.path.splitext(os.path.basename(file))[0]}.md")
 
 
     # (3) 从 Subreddit 收集信息
     subreddit_posts = read_data("data/subreddit/subreddit_posts.txt")
+    if not subreddit_posts:
+         subreddit_posts = subreddit_fallback()
 
     # Prompt for Subreddit Analysis
     subreddit_prompt = f"""你是一个用户需求分析师。请分析以下 Subreddit 帖子/评论，提取用户表达的主要需求、痛点和问题。
@@ -508,8 +595,7 @@ def run_design_sprint():
         请按照以下格式输出：
           - 视觉元素描述：
             - 场景 1：... (描述场景1的视觉元素)
-            - 场景 2：... (描述场景2的视觉元素)
-            - 场景 3：... (描述场景3的视觉元素)
+            - 场景 2：... (描述场景2的视觉元素)            - 场景 3：... (描述场景3的视觉元素)
             - ... (更多场景)
             """
     visual_output = call_llm(visual_prompt)
@@ -552,7 +638,7 @@ def run_design_sprint():
     landing_selling_output = call_llm(landing_selling_prompt)
     save_output(landing_selling_output, "output/day4/landing_page_selling_points.md")
 
-    landing_visual_prompt = f"""你是一个视觉设计师。请基于以下产品特点和目标用户，提供落地页的视觉        元素建议，例如颜色搭配、图片风格、布局方式等。 记住要遵循growth.design/case-studies 提到的最佳实践，例如清晰的视觉层次，一致的视觉风格，易于理解的文案，合理的交互反馈，易于导航的结构，可访问性，避免认知负荷，以用户为中心，避免不必要的元素，和一致的间距
+    landing_visual_prompt = f"""你是一个视觉设计师。请基于以下产品特点和目标用户，提供落地页的视觉元素建议，例如颜色搭配、图片风格、布局方式等。记住要遵循growth.design/case-studies 提到的最佳实践，例如清晰的视觉层次，一致的视觉风格，易于理解的文案，合理的交互反馈，易于导航的结构，可访问性，避免认知负荷，以用户为中心，避免不必要的元素，和一致的间距
 
         产品特点：
             {product_description}
@@ -589,7 +675,7 @@ def run_design_sprint():
     save_output(interaction_output, "output/day4/prototype_interaction.md")
 
     # (4) 界面设计
-    ui_prompt = f"""你是一个界面布局设计师。请基于以下原型功能和交互流程，提供界面元素布局建议，例如导航栏、搜索框、按钮、内容区域的布局方式。 记住要遵循growth.design/case-studies 提到的最佳实践，例如清晰的视觉层次，一致的视觉风格，易于理解的文案，合理的交互反馈，易于导航的结构，可访问性，避免认知负荷，以用户为中心，避免不必要的元素，和一致的间距
+    ui_prompt = f"""你是一个界面布局设计师。请基于以下原型功能和交互流程，提供界面元素布局建议，例如导航栏、搜索框、按钮、内容区域的布局方式。记住要遵循growth.design/case-studies 提到的最佳实践，例如清晰的视觉层次，一致的视觉风格，易于理解的文案，合理的交互反馈，易于导航的结构，可访问性，避免认知负荷，以用户为中心，避免不必要的元素，和一致的间距
 
          原型功能：
         {design_output}
