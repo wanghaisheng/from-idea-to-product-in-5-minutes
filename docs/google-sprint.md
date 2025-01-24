@@ -552,7 +552,7 @@ def run_design_sprint():
     landing_selling_output = call_llm(landing_selling_prompt)
     save_output(landing_selling_output, "output/day4/landing_page_selling_points.md")
 
-    landing_visual_prompt = f"""你是一个视觉设计师。请基于以下产品特点和目标用户，提供落地页的视觉元素建议，例如颜色搭配、图片风格、布局方式等。
+    landing_visual_prompt = f"""你是一个视觉设计师。请基于以下产品特点和目标用户，提供落地页的视觉        元素建议，例如颜色搭配、图片风格、布局方式等。 记住要遵循growth.design/case-studies 提到的最佳实践，例如清晰的视觉层次，一致的视觉风格，易于理解的文案，合理的交互反馈，易于导航的结构，可访问性，避免认知负荷，以用户为中心，避免不必要的元素，和一致的间距
 
         产品特点：
             {product_description}
@@ -585,10 +585,12 @@ def run_design_sprint():
           请按照以下格式输出：
           - 交互流程：... (详细描述用户如何与原型进行交互)
          """
-    interaction_output = call_llm(interaction_prompt    save_output(interaction_output, "output/day4/prototype_interaction.md")
+    interaction_output = call_llm(interaction_prompt)
+    save_output(interaction_output, "output/day4/prototype_interaction.md")
 
     # (4) 界面设计
-    ui_prompt = f"""你是一个界面布局设计师。请基于以下原型功能和交互流程，提供界面元素布局建议，例如导航栏、搜索框、按钮、内容区域的布局方式。
+    ui_prompt = f"""你是一个界面布局设计师。请基于以下原型功能和交互流程，提供界面元素布局建议，例如导航栏、搜索框、按钮、内容区域的布局方式。 记住要遵循growth.design/case-studies 提到的最佳实践，例如清晰的视觉层次，一致的视觉风格，易于理解的文案，合理的交互反馈，易于导航的结构，可访问性，避免认知负荷，以用户为中心，避免不必要的元素，和一致的间距
+
          原型功能：
         {design_output}
         交互流程：
@@ -601,7 +603,7 @@ def run_design_sprint():
     save_output(ui_output, "output/day4/ui_layout.md")
 
 
-    ui_element_prompt = f"""你是一个界面元素设计师。请基于以下原型需求，提供常用界面元素的设计建议，例如搜索框的样式、按钮的形状、图标的选择等。
+    ui_element_prompt = f"""你是一个界面元素设计师。请基于以下原型需求，提供常用界面元素的设计建议，例如搜索框的样式、按钮的形状、图标的选择等。记住要遵循growth.design/case-studies 提到的最佳实践，例如清晰的视觉层次，一致的视觉风格，易于理解的文案，合理的交互反馈，易于导航的结构，可访问性，避免认知负荷，以用户为中心，避免不必要的元素，和一致的间距
 
         原型需求：
           {design_output}
@@ -617,7 +619,8 @@ def run_design_sprint():
     # --- Day 5: Test (Design Generation and Development Plan) ---
     print("----- Day 5: Test -----")
     # (1) 使用第四天的UI信息生成设计稿
-    design_prompt = f"""你是一个视觉描述师。请根据以下界面布局和元素建议，描述一个简洁，现代的落地页设计稿
+    design_prompt = f"""你是一个视觉描述师。请根据以下界面布局和元素建议，描述一个简洁，现代的落地页设计稿, 记住要遵循growth.design/case-studies 提到的最佳实践，例如清晰的视觉层次，一致的视觉风格，易于理解的文案，合理的交互反馈，易于导航的结构，可访问性，避免认知负荷，以用户为中心，避免不必要的元素，和一致的间距
+
          界面布局：
          {ui_output}
          界面元素：
@@ -643,7 +646,7 @@ def run_design_sprint():
     save_output(ui_elements_output, "output/day5/ui_elements_from_design.json")
 
     # (2) 生成开发计划
-    dev_plan_prompt = f"""你是一个项目经理。请基于以下信息，生成一份详细的开发计划，包括技术选型、落地页开发、原型功能开发、测试计划等，并按优先级排序。 同时遵循"AI-Assisted Development Guidelines"中的所有要求。
+    dev_plan_prompt = f"""你是一个项目经理。请基于以下信息，生成一份详细的开发计划，包括技术选型、落地页开发、原型功能开发、测试计划等，并按优先级排序。 同时遵循"AI-Assisted Development Guidelines"中的所有要求，确保设计稿的实现符合growth.design/case-studies 提到的最佳实践，例如清晰的视觉层次，一致的视觉风格，易于理解的文案，合理的交互反馈，易于导航的结构，可访问性，避免认知负荷，以用户为中心，避免不必要的元素，和一致的间距
     
         技术选型：
         {read_data("output/day4/tech_stack.json")}
